@@ -87,6 +87,15 @@ var editor = {
 		this.el.insertBefore(tool, this.el.firstChild);
 		// 构建普通功能按钮
 		var btnCss = '#editor-tool .edBtn {font-size: 12px;color: #555;border:1px solid #ccc;background: #f7f7f7;box-shadow: inset 0 1px 0 #fff,0 1px 0 rgba(0,0,0,.08);display: inline-block;vertical-align:top;height:20px;line-height:20px;padding:0 3px;cursor: pointer;margin:0 3px 3px 0;border-radius: 3px;}#editor-tool .edBtn-fake {position: relative}#editor-tool .edBtn-fake div,#editor-tool .edBtn-fake table{display:none;}#editor-tool .edBtn-fake-on div,#editor-tool .edBtn-fake-on table {display:block;position: absolute;top:20px;left:0;border:1px solid #ccc;background: #f7f7f7;box-shadow: inset 0 1px 0 #fff,0 1px 0 rgba(0,0,0,.08);height: 80px;overflow:auto;overflow-x: hidden;}#editor-tool .edBtn-fake-on div span {display: block;line-height: 20px;padding: 0 15px 0 3px;white-space:nowrap;}#editor-tool .edBtn-fake-on table{display: table;width: 112px;}#editor-tool .edBtn-file{position: relative;overflow:hidden;}.edBtn-file input{opacity:0;position: absolute;top:0;right:0;/*点击区域*/filter:alpha(opacity=0);cursor:pointer;}';
+		// 插入style ie 插入 style 无可视化元素问题（innerHTML 问题）
+		var sheet = document.createElement('style');
+		sheet.setAttribute('type', 'text/css');
+		if (sheet.styleSheet) {
+			sheet.styleSheet.cssText = btnCss;
+		} else {
+			sheet.innerHTML = btnCss;
+		}
+		 document.getElementsByTagName('head')[0].appendChild(sheet);
 		//构建layout
 		var tpl = [];
 		for (var i in button) {
@@ -139,22 +148,11 @@ var editor = {
 			}
 		}
 		tool.innerHTML += tpl.join('');
-		// 插入style
-		// ie下innerHTML会覆盖append进入的#style#元素?
-		var sheet = document.createElement('style');
-		sheet.setAttribute('type', 'text/css');
-		if (sheet.styleSheet) {
-			sheet.styleSheet.cssText = btnCss;
-		} else {
-			sheet.innerHTML = btnCss;
-		}
-		tool.appendChild(sheet);
-
 	},
 	bind: function(tool) {
 		var self = this,
 			tool = this.tool,
-			method, value, mode;
+			method, mode;
 
 		function toggleView(target) {
 			if ((mode = self.getData(target, 'mode')) == 0) {
@@ -214,6 +212,10 @@ var editor = {
 				selection.addRange(range); //插入内容
 			}
 		}
+		function execCommand(target,method){
+			var value = self.getData(target, 'value');
+			self.setStyle(method, value);
+		}
 		this.addEvent(tool, 'click', function(e) {
 			var target = e.srcElement || e.target,
 				method = self.getData(target, 'method'),
@@ -223,6 +225,7 @@ var editor = {
 					case 'createlink':
 					case 'insertimage':
 						value = prompt('请插入链接', 'http://');
+						execCommand(target,method);
 						break;
 					case 'html':
 						toggleView(target);
@@ -252,9 +255,11 @@ var editor = {
 					case 'fontsize':
 					case 'fontname':
 						e.stopPropagation ? e.stopPropagation : (window.event.cancelBubble = true);
+						execCommand(target,method);
+						break;
 					default:
-						value = self.getData(target, 'value');
-						self.setStyle(method, value);
+						execCommand(target,method);
+						break;
 				}
 				self.activeEdBtn && (self.activeEdBtn.className = self.activeEdBtn.className.replace(/\s*edBtn-fake-on\s*/g, ''))
 				self.activeEdBtn = null;
@@ -285,12 +290,12 @@ var editor = {
 				xhr = new XMLHttpRequest();
 				formdata = new FormData();
 				formdata.append(target.name,target.files[0]);
-				xhr.open('post',self.postURL,false);
+				xhr.open('post',self.postURL,true);//false 为同步
 				xhr.setRequestHeader("Content-Disposition","form-data");
 				xhr.onload = function(e){
 					alert('xxx');
 				}
-				xhr.send(formdata)
+				xhr.send(formdata);
 			}else{
 				// 使用windowname,为了获取跨域的response
 				random = Math.random().toString(32).slice(2);
@@ -333,13 +338,21 @@ var editor = {
 			getFileClientPath(target);
 		})
 		function getFileClientPath(obj){
-			if(window.netscape){
-				alert(obj.files[0].getAsDataURL());
-			}else if(window.chrome){
-				alert(obj.value);
-			}else{
+			var img = document.createElement('img'),reader;
+			if(typeof FileReader === 'function'){
+				// 支持 fileReader 用 fileReader 生成缩略图
+				reader = new FileReader;
+				reader.onload = function(){
+					document.body.appendChild(img);
+					img.src = this.result;
+				}
+				reader.readAsDataURL(obj.files[0]);
+			}else if(document.selection){
+				// 不支持的使用 ie 自己的生成
 				obj.select();
-				alert(document.selection.createRange().text);
+				alert(document.selection.createRange().text)
+				document.body.appendChild(img);
+				img.src = document.selection.createRange().text;
 			}
 		}
 	},
