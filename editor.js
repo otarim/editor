@@ -72,9 +72,9 @@ var editor = {
 		this.doc = this.win.document;
 		// solve ff's contentEditable issue
 		this.doc.open();
+		this.doc.write("<!doctype html><html lang='en'><head><meta charset='UTF-8'><title>Document</title></head><body style='margin: 0;word-break: break-all'></body></html>")
 		this.doc.close();
 		this.doc.designMode = 'On';
-		// this.doc.body.style.cssText = ';margin: 0;word-break: break-all';
 		// build textarea
 		var textarea = this.textarea = document.createElement('textarea');
 		textarea.style.cssText = ';display: none;color: #00ff00;font-size: 12pt;font-family: courier;background: transparent;resize: none;border: none;text-align: left;width: 100%;height: 100%;border: 1px solid #ccc;background: #000;';
