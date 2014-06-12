@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<style>
+			#jcalendar {
+                width:210px;
+                background:#E0ECF9;
+                border:1px solid #479AC7;
+                float:left;
+            }
+            #jcalendar span {
+                float:left;
+                width:210px;
+                height:20px;
+                background:#479AC7;
+                color:#f90;
+                font-weight:bolder;
+                text-align:center;
+            }
+            #jcalendar .week {
+                background:#D5F3F4;
+                color:#808080;
+            }
+            #jcalendar .current{
+                background:#336699;
+                color:#fff;
+            }
+            #jcalendar a {
+                display:block;
+                float:left;
+                width:30px;
+                height:20px;
+                color:#000;
+                line-height:20px;
+                text-align:center;
+                text-decoration:none;
+            }
+	</style>
+</head>
+<body>
+<!-- 	<textarea name="" id="xxx" cols="30" rows="10"></textarea>
+	<button id="jj">运行</button> -->
+</body>
+<script>
+var Class = {
+    create: function() {
+        return function() {
+            this.initialize.apply(this, arguments);
+        }
+    }
+}
+//*********************Jcalendar类开始**********************
+var Jcalendar =  Class.create();
+Jcalendar.prototype = {
+    initialize:function(){
+        var $ = new Date();
+        this.drawCalendar($.getFullYear(),$.getMonth() + 1,$.getDate());
+    },
+    fillArray : function(year,month){
+        var f = new Date(year, month -1  ,1).getDay(), //求出当月的第一天是星期几
+        dates = new Date(year, month , 0).getDate(),//上个月的第零天就是今个月的最后一天
+        arr = new Array(42);//用来装载日期的数组，日期以‘xxxx-xx-xx’的形式表示
+        for(var i = 0; i < dates ; i ++ ,f ++){
+            arr[f] = year +'-'+ month +'-'+ (i+1) ;
+        }
+        return arr;
+    },
+    drawCalendar : function(year,month,date){    
+        var $ = document,$$ = 'createElement',
+        _calendar = $.getElementById("jcalendar");
+        if(_calendar) _calendar.parentNode.removeChild(_calendar);//推倒重绘！
+        var body =  $.getElementsByTagName('body')[0],//body的快捷引用
+        weeks = "日一二三四五六".split(''),//日历第二行的内容，显示星期几
+        calendar = $[$$]('div'),//日历的容器元素
+        a =  $[$$]('a'),//日历的a元素，用于克隆
+        tt =  $[$$]("tt"),//日历页眉的tt元素，用于克隆
+        thead = $[$$]('span'),//日历页眉
+        fragment = $.createDocumentFragment(),//减少DOM刷新页面的次数
+        arr = this.fillArray(year,month),//保存当月的日期
+        tts = [],//用于保存tt元素的引用
+        ths = this;//用于保存Jcalendar对象的实例的引用
+        body.insertBefore(calendar,null);//把日历加入DOM树中
+        calendar.setAttribute('id','jcalendar');
+        for(var i = 0;i<4;i++){//循环生成出个时间按钮。
+            var clone = tt.cloneNode(true);//比重新createElement快
+            clone.onclick =  (function(index){
+                return function(){//在闭包里绑定事件
+                    ths.redrawCalendar(year,month,date,index)
+                }
+            })(i);
+            tts[i] = clone;//保存引用
+            if(i==2) thead.appendChild($.createTextNode(year+"年"+month+"月"+date+"日"));
+            thead.appendChild(clone);
+        }
+        tts[0].innerHTML = '<<';
+        tts[1].innerHTML = '<';
+        tts[2].innerHTML = '>';
+        tts[3].innerHTML = '>>';
+        tts[0].className = tts[3].className = 'mbn';
+        tts[1].className = tts[2].className = 'ybn';
+        fragment.appendChild(thead);     
+        for(i = 0;i <7;i++){//星期显示区
+            var th = a.cloneNode(true);
+            th.innerHTML = weeks[i];
+            th.className = 'week';
+            fragment.appendChild(th);
+        }
+        for(i = 0;i <42;i++){//日期显示区
+            var td = a.cloneNode(true);
+            if(arr[i] == undefined ){
+                fragment.appendChild(td);
+            }else{
+                var html = arr[i].split('-')[2];
+                td.innerHTML = html;
+                td.className = 'day';
+                td.href = "javascript:void(0)";//为ie6准备的
+                (date && html == date)&&(td.className += ' current') ;//高亮每个月今天这一天
+                (i%7 == 0 || i%7 == 6)&&(td.className += ' weekend') ;//为周末添加多一个类
+                td.onclick = (function(i){
+                    return function(){
+                        alert(i);
+                    }
+                })(arr[i]);
+                fragment.appendChild(td);
+            }
+        }
+        calendar.appendChild(fragment);
+    },
+  
+    redrawCalendar : function(year,month,date,index){
+        switch(index){
+            case 0 ://preyear
+                year--;
+                break;
+            case 1://premonth
+                month--;
+                (month < 1) &&(year--,month = 12)  ;
+                break;
+            case 2://nextmonth
+                month++;                
+                (month > 12)&&(year++,month = 1) ;
+                break;
+            case 3://nextyear
+                year++;
+                break;
+        }
+        this.drawCalendar(year,month,date);
+    }
+}
+window.onload = function(){
+        new Jcalendar();
+}
+// var d = document.getElementById('xxx'),
+// 	j = document.getElementById('jj');
+// 	j.onclick = function(){
+// 		var w = window.open('','');
+// 		w.document.write(d.value);
+// 		w.document.close();
+// 	}
+
+	// var a = function(){
+ //      var  _hex = ['FF', 'CC', '99', '66', '33', '00'];
+ //      var builder = [];
+ //      // 呈现一个颜色格
+ //      var _drawCell = function(builder, red, green, blue){
+ //        builder.push('<td bgcolor="');
+ //        builder.push('#' + red + green + blue);
+ //        builder.push('" unselectable="on"></td>');
+ //      };
+ //      // 呈现一行颜色
+ //      var _drawRow = function(builder, red, blue){
+ //        builder.push('<tr>');
+ //        for (var i = 0; i < 6; ++i) {
+ //          _drawCell(builder, red, _hex[i], blue)
+ //        }
+ //        builder.push('</tr>');
+ //      };
+ //      // 呈现六个颜色区之一
+ //      var _drawTable = function(builder, blue){
+ //        builder.push('<table class="cell" unselectable="on">');
+ //        for (var i = 0; i < 6; ++i) {
+ //          _drawRow(builder, _hex[i], blue)
+ //        }
+ //        builder.push('</table>');
+ //      };
+ //      //开始创建
+ //      builder.push('<table><tr>');
+ //      for (var i = 0; i < 3; ++i) {
+ //        builder.push('<td>');
+ //        _drawTable(builder, _hex[i]);
+ //        builder.push('</td>');
+ //      }
+ //      builder.push('</tr><tr>');
+ //      for (var i = 3; i < 6; ++i) {
+ //        builder.push('<td>');
+ //        _drawTable(builder, _hex[i])
+ //        builder.push('</td>');
+ //      }
+ //      builder.push('</tr></table>');
+ //      builder.push('<table id="color_result"><tr><td id="color_view"></td><td id="color_code"></td></tr></table>');
+ //      document.body.innerHTML = builder.join('')
+ //    }
+ //    console.log(a())
+</script>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+</head>
+<body>
+	<iframe frameborder="1" id="aa"></iframe>
+	<!-- <div id="aa"></div> -->
+	<button id="bb" unselectable="on">focus</button>
+</body>
+<script>
+	var b = document.getElementById('aa');
+	var bb =document.getElementById('bb');
+	b.contentWindow.document.designMode = 'on';
+	bb.onclick = function(){
+		b.contentWindow.focus();
+	}
+</script>
+</html>

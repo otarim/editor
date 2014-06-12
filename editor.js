@@ -1,3 +1,5 @@
+// 颜色选择器
+// 源码模式
 var editor = {
 	init: function(config) {
 		var button = {
@@ -24,16 +26,16 @@ var editor = {
 			'emoticons': '插入表情',
 			'html': '源码模式'
 		},
-			fontname = ['宋体', '经典中圆简', '微软雅黑', '黑体', '楷体', '隶书', '幼圆', 'Arial', 'Arial Narrow', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Georgia', 'New Roman Times', 'Verdana'],
-			fontsize = {
-				'xx-small': 1,
-				'x-small': 2,
-				'small': 3,
-				'medium': 4,
-				'large': 5,
-				'x-large': 6,
-				'xx-large': 7
-			}
+		fontname = ['宋体', '经典中圆简', '微软雅黑', '黑体', '楷体', '隶书', '幼圆', 'Arial', 'Arial Narrow', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Georgia', 'New Roman Times', 'Verdana'],
+		fontsize = {
+			'xx-small': 1,
+			'x-small': 2,
+			'small': 3,
+			'medium': 4,
+			'large': 5,
+			'x-large': 6,
+			'xx-large': 7
+		}
 		this.el = config.el;
 		this.postURL = config.postURL;
 		//初始化editor,包括控件生成等等
@@ -54,20 +56,41 @@ var editor = {
 		}
 	})(),
 	getData: function(el, property) {
-		return 'dataset' in el ? el.dataset[property] : el['data-' + property]
+		// in lte ie10 ,('dataset' in el) return false
+		// if data-property is not defined, getAtrribute return null insteadof  undefined
+		return 'dataset' in el ? el.dataset[property] : el.getAttribute('data-' + property);
 	},
 	setData: function(el, property, value) {
-		return 'dataset' in el ? (el.dataset[property] = value) : (el['data-' + property] = value)
+		return 'dataset' in el ? (el.dataset[property] = value) : (el.setAttribute('data-' + property,value))
 	},
 	renderLayout: function() {
 		// build frame
-		var frame = this.frame = document.createElement('iframe');
+		var frame = this.frame = document.createElement('iframe'),self = this;
 		frame.frameBorder = 0;
 		frame.width = '100%';
 		frame.height = '100%';
 		frame.style.cssText = ';border: 1px solid #ccc';
 		frame.id = 'editor-area';
 		this.el.appendChild(frame);
+		//fix ie8 cursor issue when iframe is onblur
+		// here just apply in the toggleView mode
+		if(!-[1,]){
+			var bookmark;
+			//记录IE的编辑光标
+			this.addEvent(this.frame,"beforedeactivate",function(){//在文档失去焦点之前
+			  var range = self.doc.selection.createRange();
+			  bookmark= range.getBookmark();
+			});
+			//恢复IE的编辑光标
+			this.addEvent(this.frame,"activate",function(){
+			  if(bookmark){
+			    var range = self.doc.body.createTextRange();
+			    range.moveToBookmark(bookmark);
+			    range.select();
+			    bookmark = null;
+			  }
+			});
+		}
 		this.win = frame.contentWindow;
 		this.doc = this.win.document;
 		// solve ff's contentEditable issue
@@ -105,7 +128,7 @@ var editor = {
 					tpl.push('<span data-value="' + i + '" data-method="' + i + '" data-mode="0" unselectable="on" class="edBtn">' + button[i] + '</span>');
 				} else if (i === 'fontname') {
 					// 构建fontname,伪下拉
-					tpl.push('<span data-type="fontName" class="edBtn edBtn-fake">字体<div>')
+					tpl.push('<span data-type="fontName" class="edBtn edBtn-fake" unselectable="on">字体<div>')
 					for (var j = 0; j < fontname.length; j++) {
 						if (fontname.hasOwnProperty(j)) {
 							tpl.push('<span data-value="' + fontname[j] + '" data-method="' + i + '" unselectable="on">' + fontname[j] + '</span>');
@@ -114,7 +137,7 @@ var editor = {
 					tpl.push('</div></span>');
 				} else if (i === 'fontsize') {
 					// 构建字号,伪下拉
-					tpl.push('<span data-type="fontSize" class="edBtn edBtn-fake">字号<div>')
+					tpl.push('<span data-type="fontSize" class="edBtn edBtn-fake" unselectable="on">字号<div>')
 					for (var k in fontsize) {
 						if (fontsize.hasOwnProperty(k)) {
 							tpl.push('<span data-value="' + fontsize[k] + '" data-method="' + i + '" unselectable="on">' + k + '</span>');
@@ -122,7 +145,7 @@ var editor = {
 					}
 					tpl.push('</div></span>');
 				} else if (i === 'table') {
-					tpl.push('<span data-type="emoticons" class="edBtn edBtn-fake">' + button[i]);
+					tpl.push('<span data-type="table" class="edBtn edBtn-fake" unselectable="on">' + button[i]);
 					var table_tpl = '<table>' +
 						'<tr><td>行</td><td><input type="text" value="3" id="JS_edTable_cols"></td></tr>' +
 						'<tr><td>列</td><td><input type="text" value="5" id="JS_edTable_rows"></td></tr>' +
@@ -131,7 +154,7 @@ var editor = {
 						'</table></span>';
 					tpl.push(table_tpl)
 				} else if (i === 'emoticons') {
-					tpl.push('<span data-type="emoticons" class="edBtn edBtn-fake">' + button[i] + '<table><tr>');
+					tpl.push('<span data-type="emoticons" class="edBtn edBtn-fake" unselectable="on">' + button[i] + '<table><tr>');
 					for (var k = 11; k < 31; k++) {
 						tpl.push('<td><img src="./emotions/' + k + '.gif" width="20" height="20" data-method="insertHtml" data-value="img"/></td>')
 						if (k % 5 == 0) {
@@ -153,37 +176,29 @@ var editor = {
 		var self = this,
 			tool = this.tool,
 			method, mode;
-
 		function toggleView(target) {
 			if ((mode = self.getData(target, 'mode')) == 0) {
-
+				setTimeout(function(){
+					// 光标修正
+					self.resetCursorPos();
+				},0)
+				self.win.blur();
 				self.setData(target, 'mode', 1);
 				self.frame.style.display = 'none';
 				self.textarea.style.display = 'block';
 				self.textarea.value = self.doc.body.innerHTML;
 				target.innerHTML = '预览模式';
-				// self.textarea.focus();
-				// 光标修正
-				self.textarea.selectionStart = self.textarea.selectionEnd = self.textarea.value.length;
-				self.doc.designMode = 'off';
-				// range = el.createTextRange();
-				//       range.collapse(true);
-				//       range.moveStart('character', begin);
-				//       range.moveEnd('character', end);
-				//       range.select()
 			} else {
-
+				setTimeout(function(){
+					self.win.focus();
+				},0)
 				self.setData(target, 'mode', 0);
 				self.textarea.style.display = 'none';
 				self.frame.style.display = 'block';
-				self.win.focus();
 				self.doc.body.innerHTML = self.textarea.value;
 				target.innerHTML = '源码模式';
-				setTimeout(function() {
-					self.doc.designMode = 'on';
-				}, 1000)
+				// self.doc.designMode = 'on';
 			}
-			self.resetRange();
 		}
 
 		function inserhtml(html) {
@@ -191,11 +206,6 @@ var editor = {
 			if (document.selection) {
 				self.doc.selection.createRange().pasteHTML(html);
 			} else {
-				// 光标问题
-				// var range = self.doc.getSelection().getRangeAt(0),
-				// 	nnode = self.doc.createElement("span");
-				//    			range.surroundContents(nnode);
-				//    			nnode.innerHTML = html;
 				var selection = self.win.getSelection(); //取得selection(我们刚才选中的文本)
 				var range;
 				if (selection) { //如果selection不为空，就在selection中创建range对象
@@ -212,20 +222,17 @@ var editor = {
 				selection.addRange(range); //插入内容
 			}
 		}
-		function execCommand(target,method){
-			var value = self.getData(target, 'value');
-			self.setStyle(method, value);
-		}
 		this.addEvent(tool, 'click', function(e) {
 			var target = e.srcElement || e.target,
 				method = self.getData(target, 'method'),
 				col, row, width, table_tpl = [];
-			if (typeof method !== 'undefined') {
+			if (method) {
+				// fixed getAttribute's issue
 				switch (method) {
 					case 'createlink':
 					case 'insertimage':
 						value = prompt('请插入链接', 'http://');
-						execCommand(target,method);
+						self.setStyle(method,value);
 						break;
 					case 'html':
 						toggleView(target);
@@ -255,10 +262,10 @@ var editor = {
 					case 'fontsize':
 					case 'fontname':
 						e.stopPropagation ? e.stopPropagation : (window.event.cancelBubble = true);
-						execCommand(target,method);
+						self.setStyle(method,self.getData(target, 'value'));
 						break;
 					default:
-						execCommand(target,method);
+						self.setStyle(method,self.getData(target, 'value'));
 						break;
 				}
 				self.activeEdBtn && (self.activeEdBtn.className = self.activeEdBtn.className.replace(/\s*edBtn-fake-on\s*/g, ''))
@@ -273,6 +280,8 @@ var editor = {
 					self.activeEdBtn && (self.activeEdBtn.className = self.activeEdBtn.className.replace(/\s*edBtn-fake-on\s*/g, ''))
 					self.activeEdBtn = target;
 				}
+				// self.win.focus();
+				// unselectable fixed focus issue
 			}
 		})
 		this.bindSingleEvent();
@@ -291,6 +300,7 @@ var editor = {
 				formdata = new FormData();
 				formdata.append(target.name,target.files[0]);
 				xhr.open('post',self.postURL,true);//false 为同步
+				xhr.withCredentials = true; //默认跨域不带 cookie....
 				xhr.setRequestHeader("Content-Disposition","form-data");
 				xhr.onload = function(e){
 					alert('xxx');
@@ -356,43 +366,37 @@ var editor = {
 			}
 		}
 	},
-	/**
-	 * [getRange 获取选区]
-	 * @return {[object]} [description]
-	 */
-	getRange: function() {
-		if (window.getSelection) {
-			var range = this.doc.createRange(),
-				selection = this.win.getSelection(); //获取选区
-			range.setStart(selection.anchorNode, selection.anchorOffset);
-			range.setEnd(selection.focusNode, selection.focusOffset);
-			return range;
-		} else {
-			return this.doc.selection.createRange();
-		}
+	resetCursorPos: function(){
+	    var textarea = this.textarea,
+	    	length = this.textarea.value.length,
+	    	range;
+	    if(window.netscape){
+	        // ff
+	        textarea.setSelectionRange(length,length);
+	    }else if(typeof textarea.selectionStart == 'number'){
+	        // webkit
+	        textarea.selectionStart = textarea.selectionEnd = length;
+	    }else if(textarea.createTextRange){
+	        // ie
+	        range = textarea.createTextRange();
+	        range.collapse(true);
+	        range.moveStart('character', 0);
+	        range.moveEnd('character', length);
+	        range.select();
+	    }
+	    textarea.focus();
 	},
-	/**
-	 * [setStyle 设置样式]
-	 * @param {[string]} command [样式名]
-	 * @param {[string]} value   [样式的值]
-	 * @description ff对于背景色的处理跟其他浏览器不一样
-	 */
 	setStyle: function(command, value) {
-		// ie是在range上面操作execCommand
-		// 标准浏览器在document中操作execCommand
-		if (window.getSelection) {
-			this.doc.execCommand(command, false, value)
-		} else {
-			this.getRange().execCommand(command, false, value)
-		}
 		this.win.focus();
+		this.doc.execCommand(command, false, value);
 	},
-	/**
-	 * [resetRange 重新设置focus后的光标位置]
-	 * ie8使用bookmark对象,类似于快照
-	 * @return {[type]} [description]
-	 */
-	resetRange: function() {
-
+	colorPicker: function(){
+		// 255,0,0 
+		// 255,0,255
+		// 0,0,255 
+		// 0,255,255 
+		// 0,255,0 
+		// 255,255,0
+		// 255,0,0
 	}
 }

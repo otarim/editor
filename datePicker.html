@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<style>
+	* {margin: 0;padding: 0;}
+	.date-content,.date-week,.date-day {overflow: hidden;zoom: 1;}
+	.date-content {width: 688px;}
+	.date-day {padding-bottom: 2px;}
+	.date-week em,.date-day li {list-style: none;width: 96px;height: 64px;border: 2px solid #ccc;margin: 0 -2px -2px 0;float: left;line-height: 64px;}
+	.date-week em {text-align: center;font-weight: bold;font-style: normal;}
+	.date-day li {text-align: right;padding-right: 10px;width: 86px;font-size: 18px;font-weight: bold;font-family: arial;}
+	.date-day .nextbefore {color: #999;}
+	.date-day .current-date {border-color: red;position: relative;z-index: 10;}
+
+	.date-tools-fakeSelect {position: relative;width: 80px;height: 26px;line-height: 26px;}
+	.date-tools-fakeSelect em {position: absolute;width: 100%;height: 100%;top: 0;left: 0;}
+	.date-tools-fakeSelect ul {display: none;position: absolute;top: 100%;left: 0;width: 100%;height: 100px;overflow: auto;}
+	</style>
+</head>
+<body>
+	<div id="calender">
+	</div>
+	
+</body>
+<script>
+	var Emitter = function(){
+		this.hub = {};
+	}
+	Emitter.prototype = {
+		on: function(event,callback){
+			this.hub[event] = this.hub[event] || [];
+			this.hub[event].push(callback);
+		},
+		emit: function(event){
+			var todos = this.hub[event].slice(),
+				self = this,todo;
+			while(todo = todos.shift()){
+				todo.call(this);
+			}
+		},
+		removeListener: function(event,callback){
+			var todos = this.hub[event];
+			for(var i = 0,l = todos.length;i < l;i++){
+				if(todos[i].toString() === callback.toString()){
+					todos.splice(i,1);
+				}
+			}
+			!todos.length && this.clear(event);
+		},
+		clear: function(event){
+			delete this.hub[event];
+		}
+	}
+	var Calender = function(config){
+		this.el = config.el;
+		var now = new Date();
+		this.date = {
+			y: now.getFullYear(),
+			m: now.getMonth()+1,
+			d: now.getDate()
+		}
+		this.init();
+	}
+	Calender.prototype = new Emitter;
+	Calender.prototype.init = function(){
+		this.builtLayout();
+		this.registerEvent();
+		
+	}
+	Calender.prototype.builtLayout = function(){
+		var self = this;
+		var tpl = '<div id="datePicker">'+
+			'<div class="date-tools">'+
+				'<span class="date-tools-btn" data-event="prevYear">&lt</span>'+
+				'<div class="date-tools-fakeSelect" id="fakerYear">'+
+					'<em data-value="2014">2014年</em>' + 
+					'<ul data-show="false"></ul>'+
+				'</div>'+
+				'<span class="date-tools-btn" data-event="prevMonth">&lt;</span>'+
+				'<span class="date-tools-btn" id="currentDate"></span>'+
+				'<span class="date-tools-btn" data-event="nextMonth">&gt;</span>'+
+				'<span class="date-tools-btn" data-event="nextYear">&gt</span>'+
+			'</div>'+
+			'<div class="date-content">'+
+				'<div class="date-week">'+
+					'<em>星期日</em><em>星期一</em><em>星期二</em><em>星期三</em><em>星期四</em><em>星期五</em><em>星期六</em>'+
+				'</div>'+
+				'<div class="date-day" id="dateContent">'+
+				'</div>'+
+			'</div>'+
+		'</div>';
+		this.el.innerHTML = tpl;
+	}
+	var prevMonth = function(){
+		// rewrite this.now
+		this.date.m = (this.date.m -1 < 1) ? (this.date.y--,12) : this.date.m - 1;
+		this.emit('renderView');
+	}
+	var nextMonth = function(){
+		// rewrite this.now
+		this.date.m = (this.date.m + 1 > 12) ? (this.date.y++,1) : this.date.m + 1;
+		this.emit('renderView');
+	}
+	var prevYear = function(){
+		// rewrite this.now
+		this.date.y--;
+		this.emit('renderView');
+	}
+	var nextYear = function(){
+		// rewrite this.now
+		this.date.y++;
+		this.emit('renderView');
+	}
+	var formatDate = function(m){
+		m > 12 && (m = 1);
+		m < 1 && (m = 12);
+		return m;
+	}
+	var renderView = function(){
+		// 补全非该月份的日期
+		// var el = document.getElementById('currentDate'),
+		var	now = this.date,
+			year = now.y,
+			month = now.m,
+			day = now.d,
+			lower = new Date(year,formatDate(month-1),1).getDay(), // 当月的第一天
+			upper = new Date(year,month,0).getDate() + lower, //下个月的第0天就是这个月的第一天
+			lowerbefore = new Date(year,formatDate(month-1),0).getDate(), //上个月的最后一天
+			upperafter = new Date(year,formatDate(month+1),1).getDate(), //下个月的第一天
+			begin = 0,ret = ['<ul>'],
+			yearbefore = (month - 1 < 1) ? (year - 1) : year,
+			monthbefore = formatDate(month-1),
+			monthnext = formatDate(month+1),
+			yearnext = (month + 1 > 12) ? (year + 1) : year,
+			date;
+		for(var i = 0;i<42;i++){
+			switch(true){
+				case i < lower:
+					date = yearbefore + '-' + monthbefore + '-' + (lowerbefore - lower + i + 1);
+					ret.push('<li class="nextbefore" data-type="date" data-time="'+date+'">'+(lowerbefore - lower + i + 1)+'</li>');
+					break;
+				case i >= upper:
+					date = yearnext + '-' + monthnext + '-' + (i - upper + upperafter);
+					ret.push('<li class="nextbefore" data-type="date" data-time="'+date+'">'+(i - upper + upperafter)+'</li>');
+					break;
+				default:
+					date =  year + '-' + month + '-' + (begin + 1);
+					// 高亮当前日期
+					(begin + 1 == this.date.d) ? ret.push('<li class="current-date" data-type="date" data-time="'+date+'">') : ret.push('<li data-type="date" data-time="'+date+'">');
+					ret.push(++begin+'</li>');
+					break;
+			}
+		}
+		ret.push('</ul>');
+		document.getElementById('dateContent').innerHTML = ret.join('');
+		// el.innerHTML = this.date.y + '-' + this.date.m + '-' + this.date.d;
+	}
+	var changeDate = function(){
+		var time = this._date.split('-'),i=0;
+		for(var j in this.date){
+			if(this.date.hasOwnProperty(j)){
+				this.date[j] = +time[i++];
+			}
+		}
+		this.emit('renderView');
+	}
+	Calender.prototype.registerEvent = function(){
+		var self = this; 
+		this.on('prevMonth',prevMonth);
+		this.on('prevYear',prevYear);
+		this.on('nextMonth',nextMonth);
+		this.on('nextYear',nextYear);
+		this.on('renderView',renderView);
+		this.on('changeDate',changeDate);
+		this.el.addEventListener('click',function(e){
+			var target = e.target,eventType;
+			if(target.dataset['type'] === 'date'){
+				self._date = target.dataset['time'];
+				self.emit('changeDate');
+			}else if(eventType = target.dataset['event']){
+				switch(eventType){
+					case 'prevMonth':
+						self.emit('prevMonth');
+						break;
+					case 'nextMonth':
+						self.emit('nextMonth');
+						break;
+					case 'prevYear':
+						self.emit('prevYear');
+						break;
+					case 'nextYear':
+						self.emit('nextYear');
+						break;
+				}
+			}
+		},false)
+		this.emit('renderView');
+	}
+	function FakeSelect(config){
+		this.el = config.el;
+		this.init();
+	}
+	var fakeEvent = {
+		change: function(){
+			this.emit('reView');
+		},
+		reView: function(){
+			this.view.innerHTML = this.value.innerHTML;
+			this.view.dataset['value'] = this.value.dataset['value'];
+			this.value.className = 'current';
+			this.emit('toggle');
+		},
+		toggle: function(){
+			var isShow = this.list.dataset['show'];
+			if(isShow === 'true'){
+				this.list.dataset['show'] = 'false';
+				this.list.style.cssText += 'display: none;';
+			}else{
+				this.list.dataset['show'] = 'true';
+				this.list.style.cssText += 'display: block;';
+			}
+		}
+	}
+	FakeSelect.prototype = new Emitter;
+	FakeSelect.prototype.init = function(){
+		this.view = this.el.getElementsByTagName('em')[0];
+		this.list = this.el.getElementsByTagName('ul')[0];
+		this.builtList();
+		this.bindEvent(); 
+	}
+	FakeSelect.prototype.bindEvent = function(){
+		var self = this;
+		this.on('change',fakeEvent.change);
+		this.on('reView',fakeEvent.reView);
+		this.on('toggle',fakeEvent.toggle);
+		this.view.addEventListener('click',function(e){
+			// var callback = function(){
+			// 	document.removeEventListener('click',callback);
+			// 	self.emit('toggle');
+			// }
+			self.emit('toggle');
+			// document.addEventListener('click',callback)
+		})
+		this.list.addEventListener('click',function(e){
+			var target = e.target;
+			if(target.dataset['value']){
+				self.value = target;
+				self.emit('change');
+			}
+		})
+	}
+	FakeSelect.prototype.builtList = function(){
+		var ret = [];
+		for(var i = 1901;i <= 2100;i++){
+			ret.push('<li data-value="'+i+'">' + i + '年');
+		}
+		ret.push('</li>');
+		this.list.innerHTML = ret.join('</li>');
+		// goto current value
+	}
+	var calender = new Calender({
+		el: document.getElementById('calender')
+	})
+	var faker = new FakeSelect({
+		el: document.getElementById('fakerYear')
+	})
+</script>
+</html>
